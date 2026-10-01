@@ -1,5 +1,5 @@
 require("dotenv").config();
-
+const {z}=require("zod");
 const express = require("express");
 const cors = require("cors");
 const { GoogleGenAI } = require("@google/genai");
@@ -12,6 +12,28 @@ app.use(cors());
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
+const textAnalysisSchema=z.object({
+    sentiment:z.enum([
+        "positive",
+                "negative",
+                "neutral",
+                "mixed"
+    ]),
+    category:z.enum([
+        "product",
+                "delivery",
+                "service",
+                "payment",
+                "other"
+    ]),
+    summary:z.string(),
+    keywords:z.array(z.string()),
+    urgency:z.enum([
+                "low",
+                "medium",
+                "high"
+    ])
+})
 const responseSchema={
     type:"object",
     properties:{
@@ -28,7 +50,7 @@ const responseSchema={
             type:"string",
             enum:[
                 "product",
-                "delivary",
+                "delivery",
                 "service",
                 "payment",
                 "other"
@@ -37,7 +59,7 @@ const responseSchema={
         summary:{
             type:"string"
         },
-        keyword:{
+        keywords:{
             type:"array",
             items:{
                 type:"string"
@@ -56,7 +78,7 @@ const responseSchema={
         "sentiment",
         "category",
         "summary",
-        "keyword",
+        "keywords",
         "urgency"
     ]
 }
@@ -73,7 +95,16 @@ app.post("/api/analyze",async (req,res)=>{
                 responseSchema:responseSchema
             }
         })
-        res.json(JSON.parse(response.text));
+        const data = JSON.parse(response.text);
+        const result=textAnalysisSchema.safeParse(data);
+        if (!result.success) {
+            console.error(result.error);
+
+            return res.status(500).json({
+                message: "AI returned invalid data"
+            });
+}
+        res.json(result.data);
     }catch(error){
     console.error(error);
     res.status(500).json({message:"Something went wrong"})
