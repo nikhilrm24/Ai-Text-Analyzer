@@ -12,6 +12,9 @@ app.use(cors());
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
 });
+const requestSchema=z.object({
+    text:z.string().min(1)
+})
 const textAnalysisSchema=z.object({
     sentiment:z.enum([
         "positive",
@@ -85,7 +88,13 @@ const responseSchema={
 
 app.post("/api/analyze",async (req,res)=>{
     try{
-        const text=req.body.text;
+        const input=requestSchema.safeParse(req.body);
+        if(!input.success){
+            return res.status(404).json({
+                message: "Please provide valid text"
+            })
+        }
+        const text=input.data.text;
 
         const response=await ai.models.generateContent({
             model:"gemini-3.6-flash",
